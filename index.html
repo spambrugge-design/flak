@@ -5,14 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Fånga Backar!</title>
     <style>
-        /* --- ÄNDRING: Förbättrad touch-kontroll --- */
         html, body {
             height: 100%;
             width: 100%;
             margin: 0;
             overflow: hidden;
-            /* Denna regel säger åt webbläsaren att aldrig försöka scrolla/zooma,
-               vilket ger spelet full kontroll över fingerrörelser. */
             touch-action: none; 
         }
 
@@ -134,18 +131,33 @@
             STACK_ITEM_HEIGHT = backWidth * 0.9;
         }
         
+        // --- STOR ÄNDRING: Funktionen flyttar nu fångaren DIREKT ---
         function moveCatcher(xPosition) {
             let gameRect = gameContainer.getBoundingClientRect();
             let targetX = xPosition - gameRect.left;
-            mouseX = targetX;
+            
+            // Uppdatera variabeln för vingel-fysiken
+            mouseX = targetX; 
+
+            // Beräkna fångarens nya position
+            let newCatcherX = targetX - (catcherWidth / 2);
+
+            // Se till att den stannar inom spelplanen
+            if (newCatcherX < 0) newCatcherX = 0;
+            if (newCatcherX > gameWidth - catcherWidth) newCatcherX = gameWidth - catcherWidth;
+
+            // Flytta fångaren omedelbart
+            catcher.style.left = `${newCatcherX}px`;
+            
+            // Uppdatera även den globala positionen för stapeln
+            currentCatcherX = newCatcherX;
         }
 
-        // Mus-kontrollen är kvar på gameContainer
+        // Event-lyssnare (oförändrade, men anropar den nya, snabbare funktionen)
         gameContainer.addEventListener('mousemove', (event) => {
             moveCatcher(event.clientX);
         });
         
-        // Touch-kontrollerna lyssnar nu på hela fönstret (window)
         window.addEventListener('touchmove', (event) => {
             event.preventDefault();
             if (event.touches.length > 0) {
@@ -172,14 +184,12 @@
         const WOBBLE_COLLAPSE_THRESHOLD = 75;
 
         let stackedBacks = 0;
-        let currentCatcherX = gameWidth / 2 - catcherWidth / 2;
-        let mouseX = currentCatcherX;
+        let currentCatcherX; // Behöver inte startvärde här längre
+        let mouseX;
         let wobbleCounter = 0;
-        let lastMouseX = mouseX;
+        let lastMouseX;
         let mouseVelocity = 0;
         
-        // (Resten av spellogiken är oförändrad)
-
         function createFallingObject() {
             const newObject = document.createElement('img');
             newObject.classList.add('falling-object');
@@ -235,19 +245,22 @@
         }
 
         function gameLoop() {
+            // Beräkna mushastighet för vingel-fysiken
+            // (Denna del är oförändrad och påverkar bara stapeln, inte fångaren)
             let currentVelocity = mouseX - lastMouseX; 
             mouseVelocity += currentVelocity; 
             mouseVelocity *= VELOCITY_DAMPING;
             lastMouseX = mouseX;
-            let targetCatcherX = mouseX - (catcherWidth / 2);
-            currentCatcherX += (targetCatcherX - currentCatcherX) * 0.2;
-            if (currentCatcherX < 0) currentCatcherX = 0;
-            if (currentCatcherX > gameWidth - catcherWidth) currentCatcherX = gameWidth - catcherWidth;
-            catcher.style.left = `${currentCatcherX}px`;
+
+            // --- ÄNDRING: Logiken för att flytta själva fångaren är borttagen härifrån ---
+            // Den finns nu i moveCatcher() för omedelbar respons.
+
+            // Hantera vingel för stapeln (oförändrat)
             wobbleCounter += WOBBLE_SPEED;
             const stackedElements = document.querySelectorAll('.stacked-back');
             let topBackWobbleOffset = 0;
             stackedElements.forEach((back, index) => {
+                // Denna kod är beroende av att currentCatcherX uppdateras korrekt i moveCatcher()
                 const baseLeft = currentCatcherX + (catcherWidth / 2) - (backWidth / 2);
                 const phase = wobbleCounter + (index * WOBBLE_PHASE_SHIFT);
                 const amplitude = (index + 1) * WOBBLE_AMPLITUDE_PER_BACK;
@@ -260,10 +273,13 @@
                     topBackWobbleOffset = totalWobbleOffset;
                 }
             });
+
+            // Resten av spellogiken är oförändrad...
             if (Math.abs(topBackWobbleOffset) > WOBBLE_COLLAPSE_THRESHOLD) {
                 collapseStack(2);
                 mouseVelocity = 0;
             }
+
             const fallingObjects = document.querySelectorAll('.falling-object');
             const catcherRectForCollision = catcher.getBoundingClientRect();
             fallingObjects.forEach(obj => {
@@ -293,10 +309,17 @@
                     obj.remove();
                 }
             });
+            
             requestAnimationFrame(gameLoop);
         }
 
+        // --- Kör spelet ---
         updateDimensions();
+        // Sätt startpositionen för variabler som behöver det
+        currentCatcherX = gameWidth / 2 - catcherWidth / 2;
+        mouseX = currentCatcherX;
+        lastMouseX = mouseX;
+
         setInterval(createFallingObject, 1200);
         gameLoop();
     </script>
