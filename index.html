@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Fånga Backar!</title>
     <style>
-        /* Grundläggande styling för att centrera allt och ta bort scrollbars */
         html, body {
             height: 100%;
             width: 100%;
             margin: 0;
             overflow: hidden;
-            touch-action: none; /* Förhindrar oönskad browser-interaktion på touch */
+            touch-action: none;
         }
 
         body {
@@ -24,17 +23,15 @@
         }
         h1 { 
             color: #333;
-            font-size: 5vw; /* Skalbar textstorlek */
+            font-size: 5vw;
             max-font-size: 2.5em;
         }
 
-        /* --- ÄNDRING: Responsiv spel-container --- */
         #game-container {
-            width: 95vw; /* Använd 95% av skärmens bredd */
-            height: 71.25vw; /* Behåll 4:3-aspekt ratio (95 * 0.75) */
-            max-width: 800px; /* Men bli aldrig bredare än 800px */
-            max-height: 600px; /* Eller högre än 600px */
-            
+            width: 95vw;
+            height: 71.25vw;
+            max-width: 800px;
+            max-height: 600px;
             border: 2px solid #333;
             background-color: #87ceeb;
             position: relative;
@@ -42,36 +39,35 @@
             cursor: none;
         }
 
-        /* --- ÄNDRING: Skalbara spelelement med vw (viewport width) --- */
         #catcher {
-            width: 8vw; /* Skalbar storlek */
+            width: 8vw;
             height: 8vw;
-            max-width: 40px; /* Maxstorlek för stora skärmar */
+            max-width: 40px;
             max-height: 40px;
             position: absolute;
             bottom: 10px;
-            left: 50%; /* Starta i mitten */
+            left: 50%;
             transform: translateX(-50%);
             z-index: 10;
         }
         .falling-object { position: absolute; }
         
         .falling-object.back {
-            width: 12vw; /* Skalbar storlek */
+            width: 12vw;
             height: 12vw;
             max-width: 60px;
             max-height: 60px;
         }
 
         .falling-object.sabbar { 
-            width: 36vw; /* Skalbar storlek */
+            width: 36vw;
             height: 36vw;
             max-width: 180px;
             max-height: 180px;
         }
         .stacked-back {
             position: absolute;
-            width: 12vw; /* Skalbar storlek */
+            width: 12vw;
             height: 12vw;
             max-width: 60px;
             max-height: 60px;
@@ -84,13 +80,13 @@
             100% {
                 transform: rotate(var(--debris-end-rot, 90deg)) translateX(var(--debris-end-x, 0));
                 opacity: 0;
-                top: 95%; /* Fall till botten av spelplanen */
+                top: 95%;
             }
         }
 
         .debris {
             position: absolute;
-            width: 12vw; /* Skalbar storlek */
+            width: 12vw;
             height: 12vw;
             max-width: 60px;
             max-height: 60px;
@@ -119,15 +115,11 @@
         const catcher = document.getElementById('catcher');
         const scoreBoard = document.getElementById('score-board');
         
-        // --- ÄNDRING: Dimensioner är inte längre konstanter, de kan ändras ---
         let gameWidth, gameHeight, catcherWidth, backWidth, STACK_BASE_OFFSET, STACK_ITEM_HEIGHT;
 
-        // --- NY FUNKTION: Uppdaterar alla mått baserat på aktuell skärmstorlek ---
         function updateDimensions() {
             gameWidth = gameContainer.offsetWidth;
             gameHeight = gameContainer.offsetHeight;
-            
-            // Läs av den faktiska storleken på elementen
             catcherWidth = catcher.offsetWidth;
             let tempBack = document.createElement('img');
             tempBack.src = 'back.png';
@@ -135,46 +127,39 @@
             gameContainer.appendChild(tempBack);
             backWidth = tempBack.offsetWidth;
             gameContainer.removeChild(tempBack);
-            
-            // Justera stapling baserat på nya storlekar
             STACK_BASE_OFFSET = backWidth * 0.8; 
             STACK_ITEM_HEIGHT = backWidth * 0.9;
         }
         
-        // --- NY FUNKTION: En gemensam funktion för att flytta fångaren ---
         function moveCatcher(xPosition) {
             let gameRect = gameContainer.getBoundingClientRect();
-            // xPosition är nu en koordinat relativt till skärmen (från mus eller touch)
             let targetX = xPosition - gameRect.left;
-            
-            // Uppdatera mouseX för vingel-fysiken
             mouseX = targetX;
         }
 
-        // --- ÄNDRING: Uppdaterade event-lyssnare ---
+        // Mus-kontrollen är kvar på gameContainer
         gameContainer.addEventListener('mousemove', (event) => {
             moveCatcher(event.clientX);
         });
         
-        // --- NYTT: Touch-kontroller ---
-        gameContainer.addEventListener('touchmove', (event) => {
-            event.preventDefault(); // Förhindra att sidan scrollar
-            if (event.touches.length > 0) {
-                moveCatcher(event.touches[0].clientX);
-            }
-        }, { passive: false });
-
-        gameContainer.addEventListener('touchstart', (event) => {
+        // --- ÄNDRING: Touch-kontrollerna lyssnar nu på hela fönstret (window) ---
+        window.addEventListener('touchmove', (event) => {
             event.preventDefault();
             if (event.touches.length > 0) {
                 moveCatcher(event.touches[0].clientX);
             }
         }, { passive: false });
 
-        // --- NYTT: Lyssna efter storleksändringar på fönstret (t.ex. rotera mobilen) ---
+        window.addEventListener('touchstart', (event) => {
+            event.preventDefault();
+            if (event.touches.length > 0) {
+                moveCatcher(event.touches[0].clientX);
+            }
+        }, { passive: false });
+
         window.addEventListener('resize', updateDimensions);
 
-        // --- Spelvariabler (samma som förut) ---
+        // --- Spelvariabler ---
         const CATCHER_BOTTOM_POS = 10;
         const WOBBLE_SPEED = 0.05;
         const WOBBLE_AMPLITUDE_PER_BACK = 0.17;
@@ -190,7 +175,7 @@
         let lastMouseX = mouseX;
         let mouseVelocity = 0;
         
-        // (Resten av spellogiken är i stort sett oförändrad, men använder nu de dynamiska måtten)
+        // (Resten av spellogiken är oförändrad)
 
         function createFallingObject() {
             const newObject = document.createElement('img');
@@ -209,7 +194,7 @@
             let objWidth = newObject.classList.contains('back') ? backWidth : backWidth * 3;
             const randomX = Math.random() * (gameWidth - objWidth);
             newObject.style.left = `${randomX}px`;
-            newObject.style.top = `-${objWidth}px`; // Starta högre upp om objektet är stort
+            newObject.style.top = `-${objWidth}px`;
             gameContainer.appendChild(newObject);
         }
 
@@ -280,7 +265,7 @@
             const catcherRectForCollision = catcher.getBoundingClientRect();
             fallingObjects.forEach(obj => {
                 let currentTop = parseInt(obj.style.top, 10);
-                obj.style.top = `${currentTop + (gameHeight / 150) + (stackedBacks * 0.1)}px`; // Skalbar fallhastighet
+                obj.style.top = `${currentTop + (gameHeight / 150) + (stackedBacks * 0.1)}px`;
                 const objRect = obj.getBoundingClientRect();
                 const highestPointOfStack = catcherRectForCollision.top - (stackedBacks * STACK_ITEM_HEIGHT);
                 const catchZoneRect = {
@@ -308,8 +293,7 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // --- Kör spelet ---
-        updateDimensions(); // Sätt de initiala dimensionerna
+        updateDimensions();
         setInterval(createFallingObject, 1200);
         gameLoop();
     </script>
