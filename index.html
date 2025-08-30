@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Fånga Backar! (Felsökningsversion)</title>
+    <title>Fånga Backar!</title>
     <style>
         html, body {
             height: 100%;
@@ -27,11 +27,18 @@
             max-font-size: 2.5em;
         }
 
+        /* --- ÄNDRING: Spel-containern är nu dubbelt så hög --- */
         #game-container {
-            width: 95vw;
-            height: 71.25vw;
+            /* Vi baserar nu storleken på skärmens höjd för att passa det nya formatet */
+            height: 85vh; /* Använd 85% av skärmens höjd */
+            
+            /* Sätt en ny aspekt-ratio (Bredd:Höjd). 2:3 är ett stående format. */
+            aspect-ratio: 2 / 3; 
+
+            /* Sätt nya max-värden för stora skärmar */
             max-width: 800px;
-            max-height: 600px;
+            max-height: 1200px; /* 600px * 2 */
+            
             border: 2px solid #333;
             background-color: #87ceeb;
             position: relative;
@@ -72,7 +79,26 @@
             max-width: 60px;
             max-height: 60px;
             z-index: 5;
-            /* Borttagen transition för mer direkt känsla i detta test */
+            transition: left 0.05s linear, bottom 0.05s linear;
+        }
+        
+        @keyframes debrisFallAnimation {
+            0% { transform: rotate(0deg) translateX(0); opacity: 1; }
+            100% {
+                transform: rotate(var(--debris-end-rot, 90deg)) translateX(var(--debris-end-x, 0));
+                opacity: 0;
+                top: 95%;
+            }
+        }
+
+        .debris {
+            position: absolute;
+            width: 12vw;
+            height: 12vw;
+            max-width: 60px;
+            max-height: 60px;
+            z-index: 20;
+            animation: debrisFallAnimation 0.8s ease-in forwards;
         }
         
         #score-board {
@@ -115,6 +141,7 @@
         function moveCatcher(xPosition) {
             let gameRect = gameContainer.getBoundingClientRect();
             let targetX = xPosition - gameRect.left;
+            mouseX = targetX; 
             let newCatcherX = targetX - (catcherWidth / 2);
 
             if (newCatcherX < 0) newCatcherX = 0;
@@ -124,33 +151,35 @@
             currentCatcherX = newCatcherX;
         }
 
-        gameContainer.addEventListener('mousemove', (event) => {
-            moveCatcher(event.clientX);
-        });
-        
+        gameContainer.addEventListener('mousemove', (event) => { moveCatcher(event.clientX); });
         window.addEventListener('touchmove', (event) => {
             event.preventDefault();
-            if (event.touches.length > 0) {
-                moveCatcher(event.touches[0].clientX);
-            }
+            if (event.touches.length > 0) { moveCatcher(event.touches[0].clientX); }
         }, { passive: false });
-
         window.addEventListener('touchstart', (event) => {
             event.preventDefault();
-            if (event.touches.length > 0) {
-                moveCatcher(event.touches[0].clientX);
-            }
+            if (event.touches.length > 0) { moveCatcher(event.touches[0].clientX); }
         }, { passive: false });
-
         window.addEventListener('resize', updateDimensions);
+
+        const CATCHER_BOTTOM_POS = 10;
+        const WOBBLE_SPEED = 0.05;
+        const WOBBLE_AMPLITUDE_PER_BACK = 0.1;
+        const WOBBLE_PHASE_SHIFT = 0.6;
+        const VELOCITY_WOBBLE_FACTOR = -0.25; 
+        const VELOCITY_DAMPING = 0.92; 
+        const WOBBLE_COLLAPSE_THRESHOLD = 60;
 
         let stackedBacks = 0;
         let currentCatcherX;
-
+        let mouseX;
+        let wobbleCounter = 0;
+        let lastMouseX;
+        let mouseVelocity = 0;
+        
         function createFallingObject() {
             const newObject = document.createElement('img');
             newObject.classList.add('falling-object');
-            
             if (Math.random() < 0.5) {
                 newObject.src = 'back.png';
                 newObject.dataset.type = 'good';
@@ -160,7 +189,6 @@
                 newObject.dataset.type = 'bad';
                 newObject.classList.add('sabbar');
             }
-            
             let objWidth = newObject.classList.contains('back') ? backWidth : backWidth * 3;
             const randomX = Math.random() * (gameWidth - objWidth);
             newObject.style.left = `${randomX}px`;
@@ -175,27 +203,60 @@
         
         function collapseStack(amountToDrop) {
             const allStacked = document.querySelectorAll('.stacked-back');
+            const gameRect = gameContainer.getBoundingClientRect();
             for (let i = 0; i < amountToDrop; i++) {
                 if (allStacked.length > 0 && stackedBacks > 0) {
-                    allStacked[allStacked.length - 1 - i].remove();
+                    const backToDrop = allStacked[allStacked.length - 1 - i];
+                    if (!backToDrop) continue;
+                    const backRect = backToDrop.getBoundingClientRect();
+                    const startTop = backRect.top - gameRect.top;
+                    const startLeft = backRect.left - gameRect.left;
+                    const debris = document.createElement('img');
+                    debris.src = 'back.png';
+                    debris.classList.add('debris');
+                    debris.style.top = `${startTop}px`;
+                    debris.style.left = `${startLeft}px`;
+                    const randomEndX = (Math.random() - 0.5) * 80;
+                    const randomEndRot = (Math.random() - 0.5) * 200;
+                    debris.style.setProperty('--debris-end-x', `${randomEndX}px`);
+                    debris.style.setProperty('--debris-end-rot', `${randomEndRot}deg`);
+                    gameContainer.appendChild(debris);
+                    backToDrop.remove();
                     stackedBacks--;
+                    setTimeout(() => { debris.remove(); }, 800);
                 }
             }
             scoreBoard.textContent = `Backar: ${stackedBacks}`;
         }
 
         function gameLoop() {
-            // --- ÄNDRING: All fysik för vingel är borttagen ---
-            const stackedElements = document.querySelectorAll('.stacked-back');
-            stackedElements.forEach((back, index) => {
-                // Stapeln är nu helt STEL och centrerad på fångaren
-                const baseLeft = currentCatcherX + (catcherWidth / 2) - (backWidth / 2);
-                back.style.left = `${baseLeft}px`;
-                back.style.bottom = `${10 + STACK_BASE_OFFSET + (index * STACK_ITEM_HEIGHT)}px`;
-            });
+            let currentVelocity = mouseX - lastMouseX; 
+            mouseVelocity += currentVelocity; 
+            mouseVelocity *= VELOCITY_DAMPING;
+            lastMouseX = mouseX;
 
-            // Kollaps-mekaniken kommer inte att aktiveras eftersom det inte finns något vingel
+            wobbleCounter += WOBBLE_SPEED;
+            const stackedElements = document.querySelectorAll('.stacked-back');
+            let topBackWobbleOffset = 0;
+            stackedElements.forEach((back, index) => {
+                const baseLeft = currentCatcherX + (catcherWidth / 2) - (backWidth / 2);
+                const phase = wobbleCounter + (index * WOBBLE_PHASE_SHIFT);
+                const amplitude = (index + 1) * WOBBLE_AMPLITUDE_PER_BACK;
+                const sinWobble = Math.sin(phase) * amplitude;
+                const velocityWobble = mouseVelocity * VELOCITY_WOBBLE_FACTOR * (index * 0.5 + 1);
+                const totalWobbleOffset = sinWobble + velocityWobble;
+                back.style.left = `${baseLeft + totalWobbleOffset}px`;
+                back.style.bottom = `${CATCHER_BOTTOM_POS + STACK_BASE_OFFSET + (index * STACK_ITEM_HEIGHT)}px`;
+                if (index === stackedElements.length - 1) {
+                    topBackWobbleOffset = totalWobbleOffset;
+                }
+            });
             
+            if (Math.abs(topBackWobbleOffset) > WOBBLE_COLLAPSE_THRESHOLD) {
+                collapseStack(2);
+                mouseVelocity = 0;
+            }
+
             const fallingObjects = document.querySelectorAll('.falling-object');
             const catcherRectForCollision = catcher.getBoundingClientRect();
             fallingObjects.forEach(obj => {
@@ -217,6 +278,7 @@
                         scoreBoard.textContent = `Backar: ${stackedBacks}`;
                     } else if (obj.dataset.type === 'bad') {
                         collapseStack(stackedBacks);
+                        mouseVelocity = 0;
                     }
                     obj.remove();
                 }
@@ -228,10 +290,13 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // --- Kör spelet ---
         updateDimensions();
         currentCatcherX = gameWidth / 2 - catcherWidth / 2;
-        setInterval(createFallingObject, 1200);
+        mouseX = currentCatcherX;
+        lastMouseX = mouseX;
+
+        // --- ÄNDRING: Ökad takten på nya objekt för att balansera den större spelplanen ---
+        setInterval(createFallingObject, 1000); // Var 1.2s, nu 1.0s
         gameLoop();
     </script>
 
