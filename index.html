@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Fånga Backar!</title>
     <style>
+        /* --- ÄNDRING: Förbättrad touch-kontroll --- */
         html, body {
             height: 100%;
             width: 100%;
             margin: 0;
             overflow: hidden;
-            touch-action: none;
+            /* Denna regel säger åt webbläsaren att aldrig försöka scrolla/zooma,
+               vilket ger spelet full kontroll över fingerrörelser. */
+            touch-action: none; 
         }
 
         body {
@@ -142,7 +145,7 @@
             moveCatcher(event.clientX);
         });
         
-        // --- ÄNDRING: Touch-kontrollerna lyssnar nu på hela fönstret (window) ---
+        // Touch-kontrollerna lyssnar nu på hela fönstret (window)
         window.addEventListener('touchmove', (event) => {
             event.preventDefault();
             if (event.touches.length > 0) {
