@@ -2,76 +2,98 @@
 <html lang="sv">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Fånga Backar!</title>
     <style>
+        /* Grundläggande styling för att centrera allt och ta bort scrollbars */
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none; /* Förhindrar oönskad browser-interaktion på touch */
+        }
+
         body {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             flex-direction: column;
-            height: 100vh;
-            margin: 0;
             background-color: #f0f8ff;
-            overflow: hidden;
         }
-        h1 { color: #333; }
+        h1 { 
+            color: #333;
+            font-size: 5vw; /* Skalbar textstorlek */
+            max-font-size: 2.5em;
+        }
+
+        /* --- ÄNDRING: Responsiv spel-container --- */
         #game-container {
-            width: 800px;
-            height: 600px;
+            width: 95vw; /* Använd 95% av skärmens bredd */
+            height: 71.25vw; /* Behåll 4:3-aspekt ratio (95 * 0.75) */
+            max-width: 800px; /* Men bli aldrig bredare än 800px */
+            max-height: 600px; /* Eller högre än 600px */
+            
             border: 2px solid #333;
             background-color: #87ceeb;
             position: relative;
             overflow: hidden;
             cursor: none;
         }
+
+        /* --- ÄNDRING: Skalbara spelelement med vw (viewport width) --- */
         #catcher {
-            width: 40px; 
-            height: 40px;
+            width: 8vw; /* Skalbar storlek */
+            height: 8vw;
+            max-width: 40px; /* Maxstorlek för stora skärmar */
+            max-height: 40px;
             position: absolute;
             bottom: 10px;
-            left: 380px;
+            left: 50%; /* Starta i mitten */
+            transform: translateX(-50%);
             z-index: 10;
         }
         .falling-object { position: absolute; }
         
-        /* --- ÄNDRING: Backarna dubbelt så stora --- */
         .falling-object.back {
-            width: 60px; /* Var 30px */
-            height: 60px; /* Var 30px */
+            width: 12vw; /* Skalbar storlek */
+            height: 12vw;
+            max-width: 60px;
+            max-height: 60px;
         }
 
         .falling-object.sabbar { 
-            width: 180px;
-            height: 180px;
+            width: 36vw; /* Skalbar storlek */
+            height: 36vw;
+            max-width: 180px;
+            max-height: 180px;
         }
-        /* --- ÄNDRING: Staplade backar dubbelt så stora --- */
         .stacked-back {
             position: absolute;
-            width: 60px; /* Var 30px */
-            height: 60px; /* Var 30px */
+            width: 12vw; /* Skalbar storlek */
+            height: 12vw;
+            max-width: 60px;
+            max-height: 60px;
             z-index: 5;
             transition: left 0.05s linear, bottom 0.05s linear;
         }
 
         @keyframes debrisFallAnimation {
-            0% {
-                transform: rotate(0deg) translateX(0);
-                opacity: 1;
-            }
+            0% { transform: rotate(0deg) translateX(0); opacity: 1; }
             100% {
                 transform: rotate(var(--debris-end-rot, 90deg)) translateX(var(--debris-end-x, 0));
                 opacity: 0;
-                top: 580px; 
+                top: 95%; /* Fall till botten av spelplanen */
             }
         }
 
-        /* --- ÄNDRING: Rasande backar dubbelt så stora --- */
         .debris {
             position: absolute;
-            width: 60px; /* Var 30px */
-            height: 60px; /* Var 30px */
+            width: 12vw; /* Skalbar storlek */
+            height: 12vw;
+            max-width: 60px;
+            max-height: 60px;
             z-index: 20;
             animation: debrisFallAnimation 0.8s ease-in forwards;
         }
@@ -90,42 +112,85 @@
         <img id="catcher" src="catcher.png" alt="Fångare">
     </div>
     <div id="score-board">Backar: 0</div>
-    <p>Styr med musen. Fånga <img src="back.png" style="width:30px; vertical-align: middle;"> och undvik <img src="sabbar.png" style="width:90px; vertical-align: middle;">!</p>
+    <p>Styr med musen eller fingret!</p>
 
     <script>
         const gameContainer = document.getElementById('game-container');
         const catcher = document.getElementById('catcher');
         const scoreBoard = document.getElementById('score-board');
         
-        const gameWidth = gameContainer.offsetWidth;
-        const catcherWidth = catcher.offsetWidth;
+        // --- ÄNDRING: Dimensioner är inte längre konstanter, de kan ändras ---
+        let gameWidth, gameHeight, catcherWidth, backWidth, STACK_BASE_OFFSET, STACK_ITEM_HEIGHT;
+
+        // --- NY FUNKTION: Uppdaterar alla mått baserat på aktuell skärmstorlek ---
+        function updateDimensions() {
+            gameWidth = gameContainer.offsetWidth;
+            gameHeight = gameContainer.offsetHeight;
+            
+            // Läs av den faktiska storleken på elementen
+            catcherWidth = catcher.offsetWidth;
+            let tempBack = document.createElement('img');
+            tempBack.src = 'back.png';
+            tempBack.className = 'stacked-back';
+            gameContainer.appendChild(tempBack);
+            backWidth = tempBack.offsetWidth;
+            gameContainer.removeChild(tempBack);
+            
+            // Justera stapling baserat på nya storlekar
+            STACK_BASE_OFFSET = backWidth * 0.8; 
+            STACK_ITEM_HEIGHT = backWidth * 0.9;
+        }
+        
+        // --- NY FUNKTION: En gemensam funktion för att flytta fångaren ---
+        function moveCatcher(xPosition) {
+            let gameRect = gameContainer.getBoundingClientRect();
+            // xPosition är nu en koordinat relativt till skärmen (från mus eller touch)
+            let targetX = xPosition - gameRect.left;
+            
+            // Uppdatera mouseX för vingel-fysiken
+            mouseX = targetX;
+        }
+
+        // --- ÄNDRING: Uppdaterade event-lyssnare ---
+        gameContainer.addEventListener('mousemove', (event) => {
+            moveCatcher(event.clientX);
+        });
+        
+        // --- NYTT: Touch-kontroller ---
+        gameContainer.addEventListener('touchmove', (event) => {
+            event.preventDefault(); // Förhindra att sidan scrollar
+            if (event.touches.length > 0) {
+                moveCatcher(event.touches[0].clientX);
+            }
+        }, { passive: false });
+
+        gameContainer.addEventListener('touchstart', (event) => {
+            event.preventDefault();
+            if (event.touches.length > 0) {
+                moveCatcher(event.touches[0].clientX);
+            }
+        }, { passive: false });
+
+        // --- NYTT: Lyssna efter storleksändringar på fönstret (t.ex. rotera mobilen) ---
+        window.addEventListener('resize', updateDimensions);
+
+        // --- Spelvariabler (samma som förut) ---
         const CATCHER_BOTTOM_POS = 10;
-
-        // --- ÄNDRING: Uppdaterade konstanter för backens nya storlek ---
-        const backWidth = 60; // Var 30
-        const STACK_BASE_OFFSET = 50; // Var 25. Justerad för att passa större backar på fångaren.
-        const STACK_ITEM_HEIGHT = 55; // Var 28. Höjden varje ny back adderar till stapeln.
-
         const WOBBLE_SPEED = 0.05;
         const WOBBLE_AMPLITUDE_PER_BACK = 0.17;
         const WOBBLE_PHASE_SHIFT = 0.6;
-        
         const VELOCITY_WOBBLE_FACTOR = -0.27; 
         const VELOCITY_DAMPING = 0.92; 
         const WOBBLE_COLLAPSE_THRESHOLD = 75;
 
-        // --- Spelvariabler ---
         let stackedBacks = 0;
         let currentCatcherX = gameWidth / 2 - catcherWidth / 2;
         let mouseX = currentCatcherX;
         let wobbleCounter = 0;
         let lastMouseX = mouseX;
         let mouseVelocity = 0;
-
-        gameContainer.addEventListener('mousemove', (event) => {
-            let gameRect = gameContainer.getBoundingClientRect();
-            mouseX = event.clientX - gameRect.left;
-        });
+        
+        // (Resten av spellogiken är i stort sett oförändrad, men använder nu de dynamiska måtten)
 
         function createFallingObject() {
             const newObject = document.createElement('img');
@@ -141,10 +206,10 @@
                 newObject.classList.add('sabbar');
             }
             
-            let objWidth = newObject.dataset.type === 'good' ? backWidth : 180;
+            let objWidth = newObject.classList.contains('back') ? backWidth : backWidth * 3;
             const randomX = Math.random() * (gameWidth - objWidth);
             newObject.style.left = `${randomX}px`;
-            newObject.style.top = `-100px`;
+            newObject.style.top = `-${objWidth}px`; // Starta högre upp om objektet är stort
             gameContainer.appendChild(newObject);
         }
 
@@ -156,56 +221,44 @@
         function collapseStack(amountToDrop) {
             const allStacked = document.querySelectorAll('.stacked-back');
             const gameRect = gameContainer.getBoundingClientRect();
-
             for (let i = 0; i < amountToDrop; i++) {
                 if (allStacked.length > 0 && stackedBacks > 0) {
                     const backToDrop = allStacked[allStacked.length - 1 - i];
                     if (!backToDrop) continue;
-
                     const backRect = backToDrop.getBoundingClientRect();
                     const startTop = backRect.top - gameRect.top;
                     const startLeft = backRect.left - gameRect.left;
-
                     const debris = document.createElement('img');
                     debris.src = 'back.png';
                     debris.classList.add('debris');
                     debris.style.top = `${startTop}px`;
                     debris.style.left = `${startLeft}px`;
-
                     const randomEndX = (Math.random() - 0.5) * 80;
                     const randomEndRot = (Math.random() - 0.5) * 200;
                     debris.style.setProperty('--debris-end-x', `${randomEndX}px`);
                     debris.style.setProperty('--debris-end-rot', `${randomEndRot}deg`);
-                    
                     gameContainer.appendChild(debris);
                     backToDrop.remove();
                     stackedBacks--;
-
-                    setTimeout(() => {
-                        debris.remove();
-                    }, 800);
+                    setTimeout(() => { debris.remove(); }, 800);
                 }
             }
             scoreBoard.textContent = `Backar: ${stackedBacks}`;
         }
-
 
         function gameLoop() {
             let currentVelocity = mouseX - lastMouseX; 
             mouseVelocity += currentVelocity; 
             mouseVelocity *= VELOCITY_DAMPING;
             lastMouseX = mouseX;
-
             let targetCatcherX = mouseX - (catcherWidth / 2);
             currentCatcherX += (targetCatcherX - currentCatcherX) * 0.2;
             if (currentCatcherX < 0) currentCatcherX = 0;
             if (currentCatcherX > gameWidth - catcherWidth) currentCatcherX = gameWidth - catcherWidth;
             catcher.style.left = `${currentCatcherX}px`;
-            
             wobbleCounter += WOBBLE_SPEED;
             const stackedElements = document.querySelectorAll('.stacked-back');
             let topBackWobbleOffset = 0;
-
             stackedElements.forEach((back, index) => {
                 const baseLeft = currentCatcherX + (catcherWidth / 2) - (backWidth / 2);
                 const phase = wobbleCounter + (index * WOBBLE_PHASE_SHIFT);
@@ -213,32 +266,27 @@
                 const sinWobble = Math.sin(phase) * amplitude;
                 const velocityWobble = mouseVelocity * VELOCITY_WOBBLE_FACTOR * (index * 0.5 + 1);
                 const totalWobbleOffset = sinWobble + velocityWobble;
-
                 back.style.left = `${baseLeft + totalWobbleOffset}px`;
                 back.style.bottom = `${CATCHER_BOTTOM_POS + STACK_BASE_OFFSET + (index * STACK_ITEM_HEIGHT)}px`;
-                
                 if (index === stackedElements.length - 1) {
                     topBackWobbleOffset = totalWobbleOffset;
                 }
             });
-            
             if (Math.abs(topBackWobbleOffset) > WOBBLE_COLLAPSE_THRESHOLD) {
                 collapseStack(2);
                 mouseVelocity = 0;
             }
-
             const fallingObjects = document.querySelectorAll('.falling-object');
             const catcherRectForCollision = catcher.getBoundingClientRect();
             fallingObjects.forEach(obj => {
                 let currentTop = parseInt(obj.style.top, 10);
-                obj.style.top = `${currentTop + 4 + (stackedBacks * 0.1)}px`;
+                obj.style.top = `${currentTop + (gameHeight / 150) + (stackedBacks * 0.1)}px`; // Skalbar fallhastighet
                 const objRect = obj.getBoundingClientRect();
                 const highestPointOfStack = catcherRectForCollision.top - (stackedBacks * STACK_ITEM_HEIGHT);
                 const catchZoneRect = {
                     left: catcherRectForCollision.left, right: catcherRectForCollision.right,
                     top: highestPointOfStack, bottom: catcherRectForCollision.bottom
                 };
-
                 if (areColliding(catchZoneRect, objRect)) {
                     if (obj.dataset.type === 'good') {
                         stackedBacks++;
@@ -253,15 +301,15 @@
                     }
                     obj.remove();
                 }
-
-                if (currentTop > gameContainer.offsetHeight + 50) {
+                if (currentTop > gameHeight + 50) {
                     obj.remove();
                 }
             });
-            
             requestAnimationFrame(gameLoop);
         }
 
+        // --- Kör spelet ---
+        updateDimensions(); // Sätt de initiala dimensionerna
         setInterval(createFallingObject, 1200);
         gameLoop();
     </script>
