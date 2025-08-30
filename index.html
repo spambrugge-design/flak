@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Fånga Backar!</title>
+    <title>Fånga Backar! (Felsökningsversion)</title>
     <style>
         html, body {
             height: 100%;
@@ -72,26 +72,7 @@
             max-width: 60px;
             max-height: 60px;
             z-index: 5;
-            transition: left 0.05s linear, bottom 0.05s linear;
-        }
-
-        @keyframes debrisFallAnimation {
-            0% { transform: rotate(0deg) translateX(0); opacity: 1; }
-            100% {
-                transform: rotate(var(--debris-end-rot, 90deg)) translateX(var(--debris-end-x, 0));
-                opacity: 0;
-                top: 95%;
-            }
-        }
-
-        .debris {
-            position: absolute;
-            width: 12vw;
-            height: 12vw;
-            max-width: 60px;
-            max-height: 60px;
-            z-index: 20;
-            animation: debrisFallAnimation 0.8s ease-in forwards;
+            /* Borttagen transition för mer direkt känsla i detta test */
         }
         
         #score-board {
@@ -131,29 +112,18 @@
             STACK_ITEM_HEIGHT = backWidth * 0.9;
         }
         
-        // --- STOR ÄNDRING: Funktionen flyttar nu fångaren DIREKT ---
         function moveCatcher(xPosition) {
             let gameRect = gameContainer.getBoundingClientRect();
             let targetX = xPosition - gameRect.left;
-            
-            // Uppdatera variabeln för vingel-fysiken
-            mouseX = targetX; 
-
-            // Beräkna fångarens nya position
             let newCatcherX = targetX - (catcherWidth / 2);
 
-            // Se till att den stannar inom spelplanen
             if (newCatcherX < 0) newCatcherX = 0;
             if (newCatcherX > gameWidth - catcherWidth) newCatcherX = gameWidth - catcherWidth;
 
-            // Flytta fångaren omedelbart
             catcher.style.left = `${newCatcherX}px`;
-            
-            // Uppdatera även den globala positionen för stapeln
             currentCatcherX = newCatcherX;
         }
 
-        // Event-lyssnare (oförändrade, men anropar den nya, snabbare funktionen)
         gameContainer.addEventListener('mousemove', (event) => {
             moveCatcher(event.clientX);
         });
@@ -174,22 +144,9 @@
 
         window.addEventListener('resize', updateDimensions);
 
-        // --- Spelvariabler ---
-        const CATCHER_BOTTOM_POS = 10;
-        const WOBBLE_SPEED = 0.05;
-        const WOBBLE_AMPLITUDE_PER_BACK = 0.17;
-        const WOBBLE_PHASE_SHIFT = 0.6;
-        const VELOCITY_WOBBLE_FACTOR = -0.27; 
-        const VELOCITY_DAMPING = 0.92; 
-        const WOBBLE_COLLAPSE_THRESHOLD = 75;
-
         let stackedBacks = 0;
-        let currentCatcherX; // Behöver inte startvärde här längre
-        let mouseX;
-        let wobbleCounter = 0;
-        let lastMouseX;
-        let mouseVelocity = 0;
-        
+        let currentCatcherX;
+
         function createFallingObject() {
             const newObject = document.createElement('img');
             newObject.classList.add('falling-object');
@@ -218,68 +175,27 @@
         
         function collapseStack(amountToDrop) {
             const allStacked = document.querySelectorAll('.stacked-back');
-            const gameRect = gameContainer.getBoundingClientRect();
             for (let i = 0; i < amountToDrop; i++) {
                 if (allStacked.length > 0 && stackedBacks > 0) {
-                    const backToDrop = allStacked[allStacked.length - 1 - i];
-                    if (!backToDrop) continue;
-                    const backRect = backToDrop.getBoundingClientRect();
-                    const startTop = backRect.top - gameRect.top;
-                    const startLeft = backRect.left - gameRect.left;
-                    const debris = document.createElement('img');
-                    debris.src = 'back.png';
-                    debris.classList.add('debris');
-                    debris.style.top = `${startTop}px`;
-                    debris.style.left = `${startLeft}px`;
-                    const randomEndX = (Math.random() - 0.5) * 80;
-                    const randomEndRot = (Math.random() - 0.5) * 200;
-                    debris.style.setProperty('--debris-end-x', `${randomEndX}px`);
-                    debris.style.setProperty('--debris-end-rot', `${randomEndRot}deg`);
-                    gameContainer.appendChild(debris);
-                    backToDrop.remove();
+                    allStacked[allStacked.length - 1 - i].remove();
                     stackedBacks--;
-                    setTimeout(() => { debris.remove(); }, 800);
                 }
             }
             scoreBoard.textContent = `Backar: ${stackedBacks}`;
         }
 
         function gameLoop() {
-            // Beräkna mushastighet för vingel-fysiken
-            // (Denna del är oförändrad och påverkar bara stapeln, inte fångaren)
-            let currentVelocity = mouseX - lastMouseX; 
-            mouseVelocity += currentVelocity; 
-            mouseVelocity *= VELOCITY_DAMPING;
-            lastMouseX = mouseX;
-
-            // --- ÄNDRING: Logiken för att flytta själva fångaren är borttagen härifrån ---
-            // Den finns nu i moveCatcher() för omedelbar respons.
-
-            // Hantera vingel för stapeln (oförändrat)
-            wobbleCounter += WOBBLE_SPEED;
+            // --- ÄNDRING: All fysik för vingel är borttagen ---
             const stackedElements = document.querySelectorAll('.stacked-back');
-            let topBackWobbleOffset = 0;
             stackedElements.forEach((back, index) => {
-                // Denna kod är beroende av att currentCatcherX uppdateras korrekt i moveCatcher()
+                // Stapeln är nu helt STEL och centrerad på fångaren
                 const baseLeft = currentCatcherX + (catcherWidth / 2) - (backWidth / 2);
-                const phase = wobbleCounter + (index * WOBBLE_PHASE_SHIFT);
-                const amplitude = (index + 1) * WOBBLE_AMPLITUDE_PER_BACK;
-                const sinWobble = Math.sin(phase) * amplitude;
-                const velocityWobble = mouseVelocity * VELOCITY_WOBBLE_FACTOR * (index * 0.5 + 1);
-                const totalWobbleOffset = sinWobble + velocityWobble;
-                back.style.left = `${baseLeft + totalWobbleOffset}px`;
-                back.style.bottom = `${CATCHER_BOTTOM_POS + STACK_BASE_OFFSET + (index * STACK_ITEM_HEIGHT)}px`;
-                if (index === stackedElements.length - 1) {
-                    topBackWobbleOffset = totalWobbleOffset;
-                }
+                back.style.left = `${baseLeft}px`;
+                back.style.bottom = `${10 + STACK_BASE_OFFSET + (index * STACK_ITEM_HEIGHT)}px`;
             });
 
-            // Resten av spellogiken är oförändrad...
-            if (Math.abs(topBackWobbleOffset) > WOBBLE_COLLAPSE_THRESHOLD) {
-                collapseStack(2);
-                mouseVelocity = 0;
-            }
-
+            // Kollaps-mekaniken kommer inte att aktiveras eftersom det inte finns något vingel
+            
             const fallingObjects = document.querySelectorAll('.falling-object');
             const catcherRectForCollision = catcher.getBoundingClientRect();
             fallingObjects.forEach(obj => {
@@ -301,7 +217,6 @@
                         scoreBoard.textContent = `Backar: ${stackedBacks}`;
                     } else if (obj.dataset.type === 'bad') {
                         collapseStack(stackedBacks);
-                        mouseVelocity = 0;
                     }
                     obj.remove();
                 }
@@ -315,11 +230,7 @@
 
         // --- Kör spelet ---
         updateDimensions();
-        // Sätt startpositionen för variabler som behöver det
         currentCatcherX = gameWidth / 2 - catcherWidth / 2;
-        mouseX = currentCatcherX;
-        lastMouseX = mouseX;
-
         setInterval(createFallingObject, 1200);
         gameLoop();
     </script>
