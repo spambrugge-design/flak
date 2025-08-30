@@ -27,18 +27,23 @@
             max-font-size: 2.5em;
         }
 
-        /* --- ÄNDRING: Spel-containern är nu dubbelt så hög --- */
-        #game-container {
-            /* Vi baserar nu storleken på skärmens höjd för att passa det nya formatet */
-            height: 85vh; /* Använd 85% av skärmens höjd */
-            
-            /* Sätt en ny aspekt-ratio (Bredd:Höjd). 2:3 är ett stående format. */
-            aspect-ratio: 2 / 3; 
+        /* --- NY STYLING för instruktionerna --- */
+        .instructions {
+            margin-top: 5px;
+            font-size: 2.5vw; /* Skalbar textstorlek */
+            max-font-size: 1.2em; /* Maxstorlek för stora skärmar */
+            color: #555;
+            text-align: center;
+            line-height: 1.3;
+        }
+        .instructions span {
+            display: block; /* Varje instruktion på en ny rad */
+        }
 
-            /* Sätt nya max-värden för stora skärmar */
+
+        #game-container {
+            width: 95vw;
             max-width: 800px;
-            max-height: 1200px; /* 600px * 2 */
-            
             border: 2px solid #333;
             background-color: #87ceeb;
             position: relative;
@@ -111,11 +116,18 @@
 <body>
 
     <h1>Fånga Backar!</h1>
+
+    <div class="instructions">
+        <span>Hjälp Ottomar att rädda ölen.</span>
+        <span>Se upp för Holmbärs i fallskärmen!</span>
+        <span>Styr med musen eller fingret!</span>
+    </div>
+
     <div id="game-container">
         <img id="catcher" src="catcher.png" alt="Fångare">
     </div>
     <div id="score-board">Backar: 0</div>
-    <p>Styr med musen eller fingret!</p>
+    
 
     <script>
         const gameContainer = document.getElementById('game-container');
@@ -126,7 +138,11 @@
 
         function updateDimensions() {
             gameWidth = gameContainer.offsetWidth;
+            const desiredHeight = gameWidth * 1.5;
+            const finalHeight = Math.min(desiredHeight, 1200);
+            gameContainer.style.height = `${finalHeight}px`;
             gameHeight = gameContainer.offsetHeight;
+            
             catcherWidth = catcher.offsetWidth;
             let tempBack = document.createElement('img');
             tempBack.src = 'back.png';
@@ -295,8 +311,7 @@
         mouseX = currentCatcherX;
         lastMouseX = mouseX;
 
-        // --- ÄNDRING: Ökad takten på nya objekt för att balansera den större spelplanen ---
-        setInterval(createFallingObject, 1000); // Var 1.2s, nu 1.0s
+        setInterval(createFallingObject, 1000);
         gameLoop();
     </script>
 
